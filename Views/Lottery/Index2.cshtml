@@ -1,0 +1,326 @@
+﻿
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+@{
+    ViewBag.Title = "Lottery App";
+}
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="~/Content/fontawesome-6.4.0.min.css" />
+    <link href="~/css/style.css" rel="stylesheet" />
+    <script src="~/Scripts/jquery-3.6.0.js"></script>
+    <title>產基會抽獎系統</title>
+</head>
+<body>
+    <div class="container">
+
+        <div class="main-section">
+            <div class="wheel-section">
+                <div class="wheel-inside">
+                    <img class="wheel-rotate" src="~/images/wheel.png" alt="" />
+                    <div class="pointer-img">
+                        <img src="~/images/pointer.png" alt="" />
+                    </div>
+                </div>
+                <!-- <button class="btn">開始抽獎</button> -->
+            </div>
+
+            <div class="display">
+                <h1>獎項 <label id="h1Text"></label></h1>
+                <h1>中獎名單</h1>
+                <div class="display-content grid">
+                </div>
+                <div class="function-area">
+                    <div class="d-flex gap-1">
+                        @Html.DropDownList("Activities", null, htmlAttributes: new { @class = "dropdown" })
+                        @Html.DropDownList("Prizes", null, htmlAttributes: new { @class = "dropdown", @onchange = "getPrizeAndParticipantCount()" })
+                        <input type="number" id="numDraws" placeholder="人數" onchange="checkmin()" />
+                        <div class="d-inline d-flex flex-column"><div id="divPrize"></div>  <div id="divPart"></div></div>
+                    </div>
+                    <div>
+                        <button class="btn run-btn mt-2" id="startButton" onclick="startLottery()">
+                            <i class="fa-solid fa-gift"></i><span>開始抽獎</span>
+                        </button>
+                        <button class="btn clear mt-2" id="clearButton" onclick="clearWinnerTable()">清除</button>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div align="right"><button class="btn clear mt-2" id="SHButton" onclick="isHide()" value="0">顯示功能列</button></div>
+    </div>
+    <input type="hidden" id="TmpPrizeId" value="" />
+    <input type="hidden" id="TmpLotteryTime" value="" />
+</body>
+
+
+
+</html>
+
+<script>
+            $(document).ready(function () {
+                getPrizeAndParticipantCount();
+                submitBackgroundForm();
+                $("#Activities").change(function () {
+                    submitBackgroundForm();
+                    $("#Prizes").empty();
+                    $.ajax({
+                        type: "POST",
+                        url: '@Url.Action("GetAllPrizesByActs")',
+                        dataType: "json",
+                        data: { groupName: $("#Activities").val() },
+                        success: function (mems) {
+                            $.each(mems, function (i, member) {
+                                $("#Prizes").append(
+                                    '<option value="' + member.Value + '">' + member.Text + "</option>"
+                                );
+                            });
+                            getPrizeAndParticipantCount();
+                        },
+                        error: function (ex) {
+                            alert("Failed to retrieve states : " + ex);
+                        },
+                    }); // ajax end
+                    return false;
+                }); // change end
+                //$('.fixed-top').hide();
+            }); // document ready end
+
+            const runBtn = document.querySelector('.run-btn');
+            const wheel = document.querySelector('.wheel-rotate');
+            const clearBtn = document.querySelector('.clear');
+            const input = document.querySelector('input');
+            const display = document.querySelector('.display-content');
+
+            //20231004, add by markhong 顯示/隱藏Menu
+            function isHide() {
+                //console.log($("#SHButton").val());
+                var vbtn = $("#SHButton").val();
+                if (vbtn == 0) {
+                    $('.fixed-top').show();
+                    $("#SHButton").val(1);
+                    $("#SHButton").text("隱藏功能列");
+                }
+                else {
+                    $('.fixed-top').hide();
+                    $("#SHButton").val(0);
+                    $("#SHButton").text("顯示功能列");
+                }
+            };
+
+            //監聽按下鍵盤按鍵事件
+            document.addEventListener('keydown', function (e) {
+                if (e.code === 'Space') {
+                    //const displayArea = document.querySelector('.display-content');
+                    //displayArea.innerHTML = '';
+                    console.log(e.code);
+                    if ($("#TmpPrizeId").val() != $("#Prizes").val()) {
+                        console.log($("#TmpPrizeId").val(), $("#Prizes").val())
+                        clearWinnerTable();
+                    }
+                    startLottery();
+                }
+            });
+
+            //20230913, add by markhong 配合按下紅色按鈕==發空白鍵的keydown==觸發啟動抽獎
+            function checkLotteryTimeInterval() {
+                startTime1 = $("#TmpLotteryTime").val();
+                let date1 = new Date(startTime1);
+                let date2 = new Date();
+                //console.log("date1, date2 = " + date1 + ', ' + date2);
+                //相差秒數
+                let dateDiff = date2.getTime() - date1.getTime();
+                //console.log("dateDiff = " + dateDiff / 1000);
+                return dateDiff / 1000;
+            }
+
+            //取剩餘參加者與獎項數量
+            function getPrizeAndParticipantCount() {
+                //console.log("cc");
+                var activityId = $("#Activities").val();
+                var prizeId = $("#Prizes").val();
+                var prizeName = $("#Prizes").find("option:selected").text() != "" ? " - " + $("#Prizes").find("option:selected").text() : "";
+                $('#h1Text').text(prizeName);
+                console.log(prizeName);
+                var fd = new FormData();
+                fd.append('ACTID', activityId);
+                fd.append('PRIZE', prizeId);
+                $.ajax({
+                    url: '@Url.Action("getPrizeAndParticipantCount")',
+                    type: "POST",
+                    processData: false,
+                    contentType: false,
+                    //data: { numDraws: numDraws, ACTID: activityId, PRIZE: prizeId },
+                    data: fd,
+                    success: function (response) {
+                        console.log(response);
+                        $('#divPrize').text(response[0]);
+                        $('#divPart').text(response[1]);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                    }
+                });
+            }
+
+            //移除標題圖檔
+            function RemoveTitlePng() {
+                var ACTID = $("#Activities").find("option:selected").val() != "" ? " - " + $("#Prizes").find("option:selected").text() : "";
+            }
+
+            //切換背景圖案
+            function submitBackgroundForm() {
+                var selectedValue = $("#Activities").val()
+                //console.log($("#Activities :selected").text());
+                var acttxt = $("#Activities :selected").text();
+                //document.getElementById('lbl_title').innerHTML = acttxt;
+
+                $.post('@Url.Action("ChangeBackground")', { selectedValue: selectedValue }, function (data) {
+                    //console.log("data = " + data[0])
+                    //20231004, add by markhong 新增無活動背景圖
+                    if (data[0] == "") {
+                        $("body").css("background-image", "url('./images/NoAct.png')");
+                        $(".container").hide();
+                    }
+                    else {
+                        $("body").css("background-image", "url('" + data[0] + "')");
+                        $(".container").show();
+                    }
+                    $("body").css("max-width", "100vw");
+                    $("body").css("height", "100vh");
+                    $("body").css("background-position", "center center");
+                    $("body").css("background-size", "cover");
+                    $("body").css("background-repeat", "no-repeat");
+                    $("body").css("overflow", "hidden");
+                    //20231004, add by markhong 切換下拉示選單底色
+                    $(".dropdown option").css("background", data[1]);
+                    $(".display").css("color", data[2]);
+                });
+            }
+
+            //開始抽獎
+            function startLottery() {
+                //20230913, add by markhong 防止誤觸連續抽獎
+                if (checkLotteryTimeInterval() <= 5) {
+                    console.log("OMG!!! Too fast...Please slow down.")
+                    return;
+                };
+                $("#TmpLotteryTime").val(new Date());
+                //console.log("P = " + $("#Prizes").val());
+                //console.log("TP = " + $("#TmpPrizeId").val());
+                if ($("#TmpPrizeId").val() != $("#Prizes").val()) {
+                    //console.log($("#TmpPrizeId").val(), $("#Prizes").val())
+                    clearWinnerTable();
+                }
+
+                wheel.classList.add('active');
+                $("#startButton").prop("disabled", true);
+                var numDraws = $("#numDraws").val();
+                var activityId = $("#Activities").val();
+                var prizeId = $("#Prizes").val();
+                $("#TmpPrizeId").val($("#Prizes").val());
+                console.log(numDraws, activityId, prizeId)
+
+                var fd = new FormData();
+                fd.append('numDraws', numDraws);
+                fd.append('ACTID', activityId);
+                fd.append('PRIZE', prizeId);
+                // 呼叫控制器的抽獎方法
+                $.ajax({
+                    url: '@Url.Action("StartLottery")',
+                    type: "POST",
+                    processData: false,
+                    contentType: false,
+                    //data: { numDraws: numDraws, ACTID: activityId, PRIZE: prizeId },
+                    data: fd,
+                    success: function (response) {
+                        if (response.success) {
+                            // 逐筆且間隔一秒顯示中獎者資料
+                            var winners = response.winners;
+                            var index = 0;
+                            var interval = setInterval(function () {
+                                if (index < winners.length) {
+                                    var winner = winners[index];
+                                    displayWinner(winner.FNAME, winner.DNICKNAME, winner.PRIZENAME);
+                                    index++;
+                                    getPrizeAndParticipantCount();
+                                } else {
+                                    clearInterval(interval);
+                                    wheel.classList.remove('active');
+                                }
+                            }, 1000);
+                        } else {
+                            alert(response.message);
+                        }
+                        $("#startButton").prop("disabled", false);
+
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                    }
+                });
+
+            }
+
+            //確認抽獎人數最小值
+            function checkmin() {
+                var numDraws = $("#numDraws").val();
+                if (numDraws <= 0)
+                    $("#numDraws").val(1);
+            }
+
+            //清除得獎表格
+            function clearWinnerTable() {
+                const displayArea = document.querySelector('.display-content');
+                displayArea.innerHTML = '';
+                //input.value = ''
+            }
+
+            //清除得獎者
+            function clearWinners() {
+                var numDraws = $("#numDraws").val();
+                var activityId = $("#Activities").val();
+                var prizeId = $("#Prizes").val();
+                var fd = new FormData();
+                fd.append('numDraws', numDraws);
+                fd.append('ACTID', activityId);
+                fd.append('PRIZE', prizeId);
+                // 呼叫控制器的清除表格方法
+                $.ajax({
+                    url: '@Url.Action("ClearWinners")',
+                    type: "POST",
+                    processData: false,
+                    contentType: false,
+                    data: fd,
+                    success: function (response) {
+                        // 清除成功後，清空表格並啟用開始抽獎按鈕
+                        /*$("#winnersTable tbody").empty();*/
+                        $("#startButton").prop("disabled", false);
+                        //const displayArea = document.querySelector('.display-content');
+                        //displayArea.innerHTML = '';
+                        //input.value = '';
+                        clearWinnerTable();
+                        input.value = '';
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                    }
+                });
+            }
+
+            //顯示得獎者
+            function displayWinner(name, department, prize) {
+                const displayName = document.createElement('h3');
+                const nameIcon = document.createElement('i');
+                nameIcon.setAttribute('class', 'fa-solid fa-gift');
+                const nameSpan = document.createElement('span');
+                displayName.setAttribute('class', 'name');
+                nameSpan.innerText = `${department} ${name}`;
+                displayName.append(nameIcon);
+                displayName.append(nameSpan);
+                display.append(displayName);
+            }
+</script>
+
+
