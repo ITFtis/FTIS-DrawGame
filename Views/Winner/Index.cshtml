@@ -1,0 +1,80 @@
+﻿<script src="~/Scripts/gis/bootstraptable/extensions/export/bootstrap-table-export.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tableexport.jquery.plugin@1.10.21/tableExport.min.js"></script>
+<script src="~/Scripts/gis/other/xlsx.full.min.js"></script>
+<script src="~/Scripts/prj/WinnerBasic.js"></script>
+@using Dou.Misc.Extension
+@Html.MenuMap()
+@Html.DataManagerOptionsJavascript(null, "douoptions")
+
+@*@using (Html.BeginForm("InventoryRpt", "Winner", FormMethod.Post, new { enctype = "multipart/form-data" }))
+{
+    <div class="download_button">
+        <button type="button" id="ExportData" class='btn btn-secondary' onclick="exportData()">
+            <span class="glyphicon glyphicon-export" aria-hidden="true">匯出得獎者清單</span>
+        </button>
+    </div>
+}*@
+<table id="_table"></table>
+
+<script>
+    function formatDate(dateObj, format) {
+        var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var curr_date = dateObj.getDate();
+        var curr_month = dateObj.getMonth();
+        curr_month = curr_month + 1;
+        var curr_year = dateObj.getFullYear();
+        var curr_min = dateObj.getMinutes();
+        var curr_hr = dateObj.getHours();
+        var curr_sc = dateObj.getSeconds();
+        if (curr_month.toString().length == 1)
+            curr_month = '0' + curr_month;
+        if (curr_date.toString().length == 1)
+            curr_date = '0' + curr_date;
+        if (curr_hr.toString().length == 1)
+            curr_hr = '0' + curr_hr;
+        if (curr_min.toString().length == 1)
+            curr_min = '0' + curr_min;
+        if (curr_sc.toString().length == 1)
+            curr_sc = '0' + curr_sc;
+
+        if (format == 1)//dd-mm-yyyy
+        {
+            return curr_date + "-" + curr_month + "-" + curr_year;
+        }
+        else if (format == 2)//yyyy-mm-dd
+        {
+            return curr_year + "-" + curr_month + "-" + curr_date;
+        }
+        else if (format == 3)//yyyy/mm/dd
+        {
+            return curr_year + "/" + curr_month + "/" + curr_date;
+        }
+        else if (format == 4)// yyyyMMddHHmmss
+        {
+            return curr_year + curr_month + curr_date + curr_hr + curr_min + curr_sc;
+        }
+        else if (format == 5)// MMdd
+        {
+            return curr_month + curr_date;
+        }
+    }
+
+    function exportData() {
+        var $_Prizeselect = $('select[data-fn="PRIZE"]').find("option:selected").text();
+        console.log($_Prizeselect);
+        var $_Actselect = $('select[data-fn="ACTID"]').find("option:selected").text();
+        console.log($_Actselect);
+        var d = new Date();
+        var fn = '中獎名單_' + $_Actselect + '_' + $_Prizeselect + '_' + formatDate(d, 5);
+        $('#_table').tableExport({
+            type: 'csv',
+            exportDataType: "all",
+            ignoreColumn: [0],//忽略某一列的索引
+            fileName: fn,//下载文件名称
+            onCellHtmlData: function (cell, row, col, data) {//处理导出内容,自定义某一行、某一列、某个单元格的内容
+                console.info(data);
+                return data;
+            },
+        });
+    }
+</script>
